@@ -30,7 +30,18 @@ def project_world_point_to_image(camera: Camera, point: np.ndarray) -> np.ndarra
     Returns:
         np.ndarray: [u, v] pixel coordinates corresponding to the point.
     """
-    raise NotImplementedError()
+    # object point
+    xo, yo, zo = point
+
+    # image point
+    xi = camera.fx * xo / zo
+    yi = camera.fy * yo / zo
+
+    # pixel coordinates
+    u = xi + camera.cx
+    v = yi + camera.cy
+
+    return np.array([u, v])
 
 
 def compute_image_footprint_on_surface(camera: Camera, distance_from_surface: float) -> np.ndarray:
