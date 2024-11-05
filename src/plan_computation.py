@@ -18,8 +18,12 @@ def compute_distance_between_images(camera: Camera, dataset_spec: DatasetSpec) -
         float: The distance between images in the horizontal direction.
         float: The distance between images in the vertical direction.
     """
-    raise NotImplementedError()
+    footprint_x, footprint_y = compute_image_footprint_on_surface(camera, dataset_spec.height)
 
+    distance_x = footprint_x * (1 - dataset_spec.overlap)
+    distance_y = footprint_y * (1 - dataset_spec.sidelap)
+
+    return np.array([distance_x, distance_y])
 
 def compute_speed_during_photo_capture(camera: Camera, dataset_spec: DatasetSpec, allowed_movement_px: float = 1) -> float:
     """Compute the speed of drone during an active photo capture to prevent more than 1px of motion blur.
