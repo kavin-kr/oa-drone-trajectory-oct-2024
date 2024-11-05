@@ -13,12 +13,11 @@ def compute_focal_length_in_mm(camera: Camera) -> np.ndarray:
     Returns:
         np.ndarray: [fx, fy] in mm.
     """
-    raise NotImplementedError()
     # Note(Ayush): Solution provided by project leader.
-    # pixel_to_mm_x = camera.sensor_size_x_mm / camera.image_size_x_px
-    # pixel_to_mm_y = camera.sensor_size_y_mm / camera.image_size_y_px
+    pixel_to_mm_x = camera.sensor_size_x_mm / camera.image_size_x_px
+    pixel_to_mm_y = camera.sensor_size_y_mm / camera.image_size_y_px
 
-    # return np.array([camera.fx * pixel_to_mm_x, camera.fy * pixel_to_mm_y])
+    return np.array([camera.fx * pixel_to_mm_x, camera.fy * pixel_to_mm_y])
 
 def project_world_point_to_image(camera: Camera, point: np.ndarray) -> np.ndarray:
     """Project a 3D world point into the image coordinates.
@@ -56,6 +55,21 @@ def compute_image_footprint_on_surface(camera: Camera, distance_from_surface: fl
     """
     footprint_x = distance_from_surface * (camera.image_size_x_px / camera.fx)
     footprint_y = distance_from_surface * (camera.image_size_y_px / camera.fy)
+
+    return np.array([footprint_x, footprint_y])
+
+
+def compute_image_footprint_on_surface_with_gimbal_angle(camera: Camera, distance_from_surface: float, gimbal_x_deg: float, gimbal_y_deg: float) -> np.ndarray:
+    fx_mm, fy_mm = compute_focal_length_in_mm(camera)
+
+    gimbal_x_rad = np.radians(gimbal_x_deg)
+    gimbal_y_rad = np.radians(gimbal_y_deg)
+
+    fov_x = 2 * np.arctan((camera.sensor_size_x_mm / 2) / fx_mm)
+    fov_y = 2 * np.arctan((camera.sensor_size_y_mm / 2) / fy_mm)
+
+    footprint_x = distance_from_surface * (np.tan(gimbal_x_rad + fov_x / 2) - np.tan(gimbal_x_rad - fov_x / 2))
+    footprint_y = distance_from_surface * (np.tan(gimbal_y_rad + fov_y / 2) - np.tan(gimbal_y_rad - fov_y / 2))
 
     return np.array([footprint_x, footprint_y])
 

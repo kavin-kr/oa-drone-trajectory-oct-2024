@@ -16,8 +16,8 @@ class Camera:
     cy: float               # optical center of the image along the y axis (in pixels)
     sensor_size_x_mm: float # Size of the sensor along the x axis (in mm) [single pixel size * number of pixels in X dimension]
     sensor_size_y_mm: float # Size of the sensor along the y axis (in mm) [single pixel size * number of pixels in Y dimension]
-    image_size_x_px: float     # Number of pixels in the image along the x axis
-    image_size_y_px: float     # Number of pixels in the image along the y axis
+    image_size_x_px: float  # Number of pixels in the image along the x axis
+    image_size_y_px: float  # Number of pixels in the image along the y axis
 
 
 @dataclass
@@ -31,6 +31,9 @@ class DatasetSpec:
     scan_dimension_x: float     # the horizontal size of the rectangle to be scanned
     scan_dimension_y: float     # the vertical size of the rectangle to be scanned
     exposure_time_ms : float    # the exposure time for each image (in milliseconds)
+
+    gimbal_x_deg: float = 0     # the tilt angle of the gimbal along the x axis (in degrees)
+    gimbal_y_deg: float = 0     # the tilt angle of the gimbal along the y axis (in degrees)
 
 
 @dataclass
