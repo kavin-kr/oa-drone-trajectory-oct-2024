@@ -41,4 +41,20 @@ class Waypoint:
     """
     Waypoints are positions where the drone should fly to and capture a photo.
     """
-    pass
+    x: float # x coordinate of the waypoint
+    y: float # y coordinate of the waypoint
+
+    # the surface area which will be captured in the image from this waypoint
+    # we can recalculate this based on the camera model and the dataset spec,
+    # but storing it here will make it easier to visualize the waypoints
+    surface_coord_x1: float
+    surface_coord_x2: float
+    surface_coord_y1: float
+    surface_coord_y2: float
+
+    # review: height is inferred from the dataset spec, should we include it here too?
+    # z: float
+
+    # review: waypoints are generated based on the gimbal angles from the dataset spec, should we include them here too?
+    # gimbal_x_deg: float
+    # gimbal_y_deg: float

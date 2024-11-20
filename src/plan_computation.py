@@ -4,7 +4,7 @@ import math
 import numpy as np
 
 from src.data_model import Camera, DatasetSpec, Waypoint
-from src.camera_utils import compute_image_footprint_on_surface, compute_ground_sampling_distance, compute_image_footprint_on_surface_with_gimbal_angle
+from src.camera_utils import compute_image_footprint_on_surface, compute_ground_sampling_distance, compute_image_footprint_on_surface_with_gimbal_angle, compute_focal_length_in_mm
 
 
 def compute_distance_between_images(camera: Camera, dataset_spec: DatasetSpec) -> np.ndarray:
@@ -69,4 +69,173 @@ def generate_photo_plan_on_grid(camera: Camera, dataset_spec: DatasetSpec) -> T.
         List[Waypoint]: scan plan as a list of waypoints.
 
     """
-    raise NotImplementedError()
+    # assumptions made:
+    # - only the area to be scanned is covered, no additional surrounding area is covered
+
+    # gives the distance after overlap
+    distance_x, distance_y = compute_distance_between_images(camera, dataset_spec)
+
+    num_of_images_x = math.ceil(dataset_spec.scan_dimension_x / distance_x)
+    num_of_images_y = math.ceil(dataset_spec.scan_dimension_y / distance_y)
+
+    distance_x = dataset_spec.scan_dimension_x / num_of_images_x
+    distance_y = dataset_spec.scan_dimension_y / num_of_images_y
+
+    footprint_x, footprint_y = compute_image_footprint_on_surface(
+        camera, dataset_spec.height
+    )
+
+    dx = footprint_x / 2
+    dy = footprint_y / 2
+
+    waypoints = []
+
+    for ny in range(num_of_images_y):
+        surface_coord_y1 = ny * distance_y
+        surface_coord_y2 = (ny + 1) * distance_y
+        y = surface_coord_y1 + dy
+
+        for nx in range(num_of_images_x):
+            if ny % 2 == 0:
+                surface_coord_x1 = nx * distance_x
+                surface_coord_x2 = (nx + 1) * distance_x
+            else:
+                surface_coord_x1 = (num_of_images_x - nx - 1) * distance_x
+                surface_coord_x2 = (num_of_images_x - nx) * distance_x
+
+            x = surface_coord_x1 + dx
+            waypoints.append(
+                Waypoint(
+                    x,
+                    y,
+                    surface_coord_x1,
+                    surface_coord_x2,
+                    surface_coord_y1,
+                    surface_coord_y2,
+                )
+            )
+
+    return waypoints
+
+
+def generate_photo_plan_on_grid_with_gimbal_angle(
+    camera: Camera, dataset_spec: DatasetSpec
+) -> T.List[Waypoint]:
+    # assumptions made:
+    # - only the area to be scanned is covered, no additional surrounding area is covered
+
+    # gives the distance after overlap
+    distance_x, distance_y = compute_distance_between_images_with_gimbal_angle(
+        camera, dataset_spec
+    )
+
+    num_of_images_x = math.ceil(dataset_spec.scan_dimension_x / distance_x)
+    num_of_images_y = math.ceil(dataset_spec.scan_dimension_y / distance_y)
+
+    distance_x = dataset_spec.scan_dimension_x / num_of_images_x
+    distance_y = dataset_spec.scan_dimension_y / num_of_images_y
+
+    fx_mm, fy_mm = compute_focal_length_in_mm(camera)
+
+    gimbal_x_rad = np.radians(dataset_spec.gimbal_x_deg)
+    gimbal_y_rad = np.radians(dataset_spec.gimbal_y_deg)
+
+    fov_x = 2 * np.arctan((camera.sensor_size_x_mm / 2) / fx_mm)
+    fov_y = 2 * np.arctan((camera.sensor_size_y_mm / 2) / fy_mm)
+
+    dx = dataset_spec.height * np.tan(gimbal_x_rad - fov_x / 2)
+    dy = dataset_spec.height * np.tan(gimbal_y_rad - fov_y / 2)
+
+    waypoints = []
+
+    for ny in range(num_of_images_y):
+        surface_coord_y1 = ny * distance_y
+        surface_coord_y2 = (ny + 1) * distance_y
+        y = surface_coord_y1 - dy
+
+        for nx in range(num_of_images_x):
+            if ny % 2 == 0:
+                surface_coord_x1 = nx * distance_x
+                surface_coord_x2 = (nx + 1) * distance_x
+            else:
+                surface_coord_x1 = (num_of_images_x - nx - 1) * distance_x
+                surface_coord_x2 = (num_of_images_x - nx) * distance_x
+
+            x = surface_coord_x1 - dx
+            waypoints.append(
+                Waypoint(
+                    x,
+                    y,
+                    surface_coord_x1,
+                    surface_coord_x2,
+                    surface_coord_y1,
+                    surface_coord_y2,
+                )
+            )
+
+    return waypoints
+
+
+def compute_travel_time_between_waypoints(
+    distance_m: float,
+    max_speed_m_per_sec: float,
+    max_acceleration_m_per_sec2: float,
+    capture_speed_m_per_sec: float,
+) -> float:
+    # assumptions: acceleration and deceleration are at the same rate
+    acceleration_time = (
+        max_speed_m_per_sec - capture_speed_m_per_sec
+    ) / max_acceleration_m_per_sec2
+    acceleration_distance = (capture_speed_m_per_sec * acceleration_time) + (
+        max_acceleration_m_per_sec2 * (acceleration_time**2) / 2
+    )
+
+    if (acceleration_distance * 2) > distance_m:
+        # triangular speed profile
+        acceleration_time = math.sqrt((distance_m / 2) / max_acceleration_m_per_sec2)
+        total_time = 2 * acceleration_time
+    else:
+        # trapezoidal speed profile
+        d_constant = distance_m - (2 * acceleration_distance)
+        t_constant = d_constant / max_speed_m_per_sec
+        total_time = (2 * acceleration_time) + t_constant
+
+    return total_time
+
+
+def compute_total_time_for_photos(
+    waypoints: T.List[Waypoint],
+    max_speed_m_per_sec: float,
+    max_acceleration_m_per_sec2: float,
+    capture_speed_m_per_sec: float,
+    capture_time_ms: float,
+) -> float:
+    total_time = 0.0
+
+    distance_travelled_while_capturing = capture_speed_m_per_sec * (
+        capture_time_ms / 1000
+    )
+
+    for i in range(1, len(waypoints)):
+        distance = np.sqrt(
+            (waypoints[i].x - waypoints[i - 1].x) ** 2
+            + (waypoints[i].y - waypoints[i - 1].y) ** 2
+        )
+
+        # reduce the distance travelled by the drone while capturing the photo
+        distance -= distance_travelled_while_capturing
+
+        travel_time = compute_travel_time_between_waypoints(
+            distance,
+            max_speed_m_per_sec,
+            max_acceleration_m_per_sec2,
+            capture_speed_m_per_sec,
+        )
+
+        total_time += travel_time + capture_time_ms
+
+    # n-1 capture time is added, add the last capture time
+    if len(waypoints) > 0:
+        total_time += capture_time_ms
+
+    return total_time
