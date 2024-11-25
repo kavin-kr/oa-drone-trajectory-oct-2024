@@ -69,41 +69,34 @@ def generate_photo_plan_on_grid(camera: Camera, dataset_spec: DatasetSpec) -> T.
         List[Waypoint]: scan plan as a list of waypoints.
 
     """
-    # assumptions made:
-    # - only the area to be scanned is covered, no additional surrounding area is covered
-
-    # gives the distance after overlap
     distance_x, distance_y = compute_distance_between_images(camera, dataset_spec)
 
     num_of_images_x = math.ceil(dataset_spec.scan_dimension_x / distance_x)
     num_of_images_y = math.ceil(dataset_spec.scan_dimension_y / distance_y)
 
-    distance_x = dataset_spec.scan_dimension_x / num_of_images_x
-    distance_y = dataset_spec.scan_dimension_y / num_of_images_y
+    speed = compute_speed_during_photo_capture(camera, dataset_spec)
 
     footprint_x, footprint_y = compute_image_footprint_on_surface(
         camera, dataset_spec.height
     )
-
     dx = footprint_x / 2
     dy = footprint_y / 2
 
     waypoints = []
 
     for ny in range(num_of_images_y):
-        surface_coord_y1 = ny * distance_y
-        surface_coord_y2 = (ny + 1) * distance_y
-        y = surface_coord_y1 + dy
+        y = ny * distance_y
+        surface_coord_y1 = y - dy
+        surface_coord_y2 = y + dy
 
         for nx in range(num_of_images_x):
             if ny % 2 == 0:
-                surface_coord_x1 = nx * distance_x
-                surface_coord_x2 = (nx + 1) * distance_x
+                x = nx * distance_x
             else:
-                surface_coord_x1 = (num_of_images_x - nx - 1) * distance_x
-                surface_coord_x2 = (num_of_images_x - nx) * distance_x
+                x = (num_of_images_x - nx - 1) * distance_x
 
-            x = surface_coord_x1 + dx
+            surface_coord_x1 = x - dx
+            surface_coord_x2 = x + dx
             waypoints.append(
                 Waypoint(
                     x,
@@ -112,6 +105,8 @@ def generate_photo_plan_on_grid(camera: Camera, dataset_spec: DatasetSpec) -> T.
                     surface_coord_x2,
                     surface_coord_y1,
                     surface_coord_y2,
+                    dataset_spec.height,
+                    speed
                 )
             )
 
@@ -121,19 +116,12 @@ def generate_photo_plan_on_grid(camera: Camera, dataset_spec: DatasetSpec) -> T.
 def generate_photo_plan_on_grid_with_gimbal_angle(
     camera: Camera, dataset_spec: DatasetSpec
 ) -> T.List[Waypoint]:
-    # assumptions made:
-    # - only the area to be scanned is covered, no additional surrounding area is covered
-
-    # gives the distance after overlap
-    distance_x, distance_y = compute_distance_between_images_with_gimbal_angle(
-        camera, dataset_spec
-    )
+    distance_x, distance_y = compute_distance_between_images_with_gimbal_angle(camera, dataset_spec)
 
     num_of_images_x = math.ceil(dataset_spec.scan_dimension_x / distance_x)
     num_of_images_y = math.ceil(dataset_spec.scan_dimension_y / distance_y)
 
-    distance_x = dataset_spec.scan_dimension_x / num_of_images_x
-    distance_y = dataset_spec.scan_dimension_y / num_of_images_y
+    speed = compute_speed_during_photo_capture(camera, dataset_spec)
 
     fx_mm, fy_mm = compute_focal_length_in_mm(camera)
 
@@ -143,25 +131,26 @@ def generate_photo_plan_on_grid_with_gimbal_angle(
     fov_x = 2 * np.arctan((camera.sensor_size_x_mm / 2) / fx_mm)
     fov_y = 2 * np.arctan((camera.sensor_size_y_mm / 2) / fy_mm)
 
-    dx = dataset_spec.height * np.tan(gimbal_x_rad - fov_x / 2)
-    dy = dataset_spec.height * np.tan(gimbal_y_rad - fov_y / 2)
+    dx1 = dataset_spec.height * np.tan(gimbal_x_rad - fov_x / 2)
+    dx2 = dataset_spec.height * np.tan(gimbal_x_rad + fov_x / 2)
+    dy1 = dataset_spec.height * np.tan(gimbal_y_rad - fov_y / 2)
+    dy2 = dataset_spec.height * np.tan(gimbal_y_rad + fov_y / 2)
 
     waypoints = []
 
     for ny in range(num_of_images_y):
-        surface_coord_y1 = ny * distance_y
-        surface_coord_y2 = (ny + 1) * distance_y
-        y = surface_coord_y1 - dy
+        y = ny * distance_y
+        surface_coord_y1 = y + dy1
+        surface_coord_y2 = y + dy2
 
         for nx in range(num_of_images_x):
             if ny % 2 == 0:
-                surface_coord_x1 = nx * distance_x
-                surface_coord_x2 = (nx + 1) * distance_x
+                x = nx * distance_x
             else:
-                surface_coord_x1 = (num_of_images_x - nx - 1) * distance_x
-                surface_coord_x2 = (num_of_images_x - nx) * distance_x
+                x = (num_of_images_x - nx - 1) * distance_x
 
-            x = surface_coord_x1 - dx
+            surface_coord_x1 = x + dx1
+            surface_coord_x2 = x + dx2
             waypoints.append(
                 Waypoint(
                     x,
@@ -170,6 +159,8 @@ def generate_photo_plan_on_grid_with_gimbal_angle(
                     surface_coord_x2,
                     surface_coord_y1,
                     surface_coord_y2,
+                    dataset_spec.height,
+                    speed
                 )
             )
 

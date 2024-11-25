@@ -53,8 +53,10 @@ class Waypoint:
     surface_coord_y2: float
 
     # review: height is inferred from the dataset spec, should we include it here too?
-    # z: float
+    z: float
 
     # review: waypoints are generated based on the gimbal angles from the dataset spec, should we include them here too?
     # gimbal_x_deg: float
     # gimbal_y_deg: float
+
+    speed_m_per_sec: float # the speed at which the drone should fly to this waypoint (in m/s)
