@@ -21,6 +21,7 @@ def plot_photo_plan(computed_plan: T.List[Waypoint], scan_dimension_x: float, sc
     """
     fig = go.Figure()
 
+    # Add scan area rectangle
     fig.add_shape(
         type="rect",
         x0=0,
@@ -34,6 +35,7 @@ def plot_photo_plan(computed_plan: T.List[Waypoint], scan_dimension_x: float, sc
 
     for i, waypoint in enumerate(computed_plan):
         if i > 0:
+            # Add line between waypoints
             prev_wp = computed_plan[i - 1]
             fig.add_trace(go.Scatter(
                 x=[prev_wp.x, waypoint.x],
@@ -43,19 +45,43 @@ def plot_photo_plan(computed_plan: T.List[Waypoint], scan_dimension_x: float, sc
                 showlegend=False
             ))
 
-        # Mark the waypoint coordinate with a larger red dot
+        # Add waypoint markers
         fig.add_trace(go.Scatter(
             x=[waypoint.x],
             y=[waypoint.y],
             mode='markers+text',
-            marker=dict(size=12, color='red', symbol='circle'),  # Larger size and clear shape
-            text=[f"{i+1}"],  # Label waypoints numerically
-            textfont=dict(size=10, color='black'),  # Text styling for better visibility
+            marker=dict(size=12, color='red', symbol='circle'),
+            text=[f"{i+1}"],
+            textfont=dict(size=10, color='black'),
             textposition="top center",
             name=f"Waypoint {i+1}"
         ))
 
-    # Compute axis ranges dynamically from waypoints and scan dimensions
+    waypoint = computed_plan[0]
+    # Add surface coverage area
+    fig.add_shape(
+        type="rect",
+        x0=waypoint.surface_coord_x1,
+        y0=waypoint.surface_coord_y1,
+        x1=waypoint.surface_coord_x2,
+        y1=waypoint.surface_coord_y2,
+        line=dict(color="black", width=1),
+        fillcolor="#efa093",
+        opacity=0.5
+    )
+
+    fig.add_annotation(
+        x=(waypoint.surface_coord_x1 + waypoint.surface_coord_x2) / 2,
+        y=(waypoint.surface_coord_y1 + waypoint.surface_coord_y2) / 2,
+        text=f"Footprint of Image 1",
+        showarrow=False,
+        font=dict(size=10, color="black"),
+        align="center",
+        bgcolor="white",
+        opacity=0.7
+    )
+
+    # Get min and max values for x and y coordinates
     x_values = [wp.x for wp in computed_plan] + [wp.surface_coord_x1 for wp in computed_plan] + [wp.surface_coord_x2 for wp in computed_plan] + [scan_dimension_x]
     y_values = [wp.y for wp in computed_plan] + [wp.surface_coord_y1 for wp in computed_plan] + [wp.surface_coord_y2 for wp in computed_plan] + [scan_dimension_y]
 
@@ -76,7 +102,7 @@ def plot_photo_plan(computed_plan: T.List[Waypoint], scan_dimension_x: float, sc
         height=800,
         width=1000,
         showlegend=False,
-        plot_bgcolor="#e0e7f0"  # Light background for better visibility
+        plot_bgcolor="#e0e7f0"
     )
 
     return fig
